@@ -1,6 +1,6 @@
-9c3baae092bd3a2939e4974b8208b081 *DESCRIPTION
+0bbbe80189bf5a361edbb58b93b3e2dc *DESCRIPTION
 ee93e6a53377189a617e4ae8ee82ec00 *NAMESPACE
-952e694e74f392eca7f624fa771ac71b *R/App.R
+314a3efa23281842a94eeae8278868d0 *R/App.R
 a32e7a81909793274ad09fdb4e82640e *R/classElementR_R6.R
 678513b2a2eea80cb8c8290ff26fd665 *inst/Example_Session/Calibration_File_NIST612.csv
 7b5839145e52ae3991d7a5d242edd532 *inst/Example_Session/samples/Sample_1/Sample1_Rep1.csv
@@ -76,7 +76,7 @@ bcf3158499d44592e0896f3ee6ca6b26 *inst/Results/standards/Stand3.xls/data_Norm_St
 ddf91e10603597e953aa24c70c0385b3 *inst/Results/standards/Stand3.xls/data_Plateau_Stand3.xls.csv
 c0f6545c9b5a5d9c35a39590b5d5eb3c *inst/Results/standards/Stand3.xls/data_SupLOD_Stand3.xls.csv
 c0f6545c9b5a5d9c35a39590b5d5eb3c *inst/Results/standards/Stand3.xls/data_SuppBlank_Stand3.xls.csv
-d1ac1fd4d04b9ffb8f145544c9da01f5 *inst/elementR_documentation.pdf
+fc5ed5b73c90b20fe2f24a070796f915 *inst/elementR_documentation.pdf
 d6afd621422e9b9df2d1d6bd5b9d1dd3 *inst/www/1.png
 2bb8e5a033cb0544a0cd3b6e776db34a *inst/www/2.png
 3e0756f114768be953e44b5ee1f6f475 *inst/www/3.png

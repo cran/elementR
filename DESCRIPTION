@@ -2,7 +2,7 @@ Package: elementR
 Type: Package
 Title: A Shiny Application for Reducing Elemental LA-ICPMS Data from
         Solid Structures
-Version: 1.0
+Version: 1.1
 Date: 2016-08-26
 Author: Charlotte Sirot, Francois Guilhaumon, Franck Ferraton, Audrey Darnaude, Jacques Panfili, Amber Child 
 Maintainer: Charlotte Sirot <charlott.sirot@gmail.com>
@@ -13,5 +13,5 @@ Imports: gdata, shiny,devtools, shinyjs, gnumeric, R6, shinydashboard,
         abind, stringr, lmtest, tcltk,tcltk2, reader, readODS, readxl
 License: GPL (>= 2)
 NeedsCompilation: no
-Packaged: 2016-08-30 09:16:53 UTC; cha
-Date/Publication: 2016-08-30 15:22:25
+Packaged: 2016-08-30 22:27:49 UTC; cha
+Date/Publication: 2016-08-31 01:20:31
