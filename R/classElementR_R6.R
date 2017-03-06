@@ -1,6 +1,6 @@
 ##############################################################
 #
-# elementR 1.2 - 11/12/2016
+# elementR 1.3.0
 # 
 # charlott.sirot@gmail.com
 # francois.guilhaumon@ird.fr
@@ -24,13 +24,13 @@ readData <- function(x, sep = ";", dec = "."){
     colnames(df) <- df[1,]
     df <- df[-1,]
     
-    col <- 1:ncol(df)
+    col <- seq(from = 1, to = ncol(df), by = 1)
     
     err <- 0
     
     for(i in col){
       
-      for(j in 1:nrow(df)){
+      for(j in seq(from = 1, to = nrow(df), by = 1)){
         
         if(is.na(df[j,i]) | is.null(df[j,i])) {
           
@@ -178,11 +178,15 @@ elementR_data <- R6Class("elementR_data",
                                                          
                              tempo <- apply(self$dataBlank[,-1], 2, mean, na.rm = TRUE)
                                                           
-                             subDat <- sapply(1:length(apply(self$dataBlank[,-1], 2, mean, na.rm = TRUE)),function(x){                              
-                               
-                               self$dataPlateau[,x+1] - tempo[x]  
-                               
-                             })
+                             subDat <- vapply(seq(from = 1, to = length(apply(self$dataBlank[,-1], 2, mean, na.rm = TRUE)), by = 1),
+                             		     
+                             		     function(x){       
+                             		     	
+                             		     	self$dataPlateau[,x+1] - tempo[x]  
+                             		     	
+                             		     	},
+                             		     FUN.VALUE = double(nrow(self$dataPlateau))
+                             		     )
                                                           
                              subDat <- cbind(as.matrix(self$dataPlateau[,1]), subDat)
                              
@@ -239,11 +243,15 @@ elementR_data <- R6Class("elementR_data",
                              
                              self$setDataSupLOD(bins = bins,plat = plat, rempl = rempl)
                              
-                             subDat <- sapply(2:ncol(self$dataSupLOD),function(x){ 
-                               
-                               self$dataSupLOD[,x]/self$dataSupLOD[,grep(self$elemstand,colnames(self$dataSupLOD))]
-                               
-                             })
+                             subDat <- vapply(seq(from = 2, to = ncol(self$dataSupLOD), by = 1),
+                             		     
+                             		     function(x){ 
+                             		     	
+                             		     	self$dataSupLOD[,x]/self$dataSupLOD[,grep(self$elemstand,colnames(self$dataSupLOD))]
+                             		     	
+                             		     	},
+                             		     FUN.VALUE = double(nrow(self$dataSupLOD))
+                             		     )
                                                           
                              subDat <- cbind(as.matrix(self$dataSupLOD[,1]),subDat)                             
                              
@@ -251,7 +259,206 @@ elementR_data <- R6Class("elementR_data",
                              
                              self$dataNorm <- subDat
                              
-                           },#setDataNorm   
+                           },#setDataNorm  
+                           
+                           ##################################################################################################
+                           # Name: OutlierDetectTietjen
+                           # Function: return the place of the outlier according to Tietjen and outlier methods
+                           # Input: 
+                           # 	x: a vector of data
+                           # 	nbOutliers: number of oulier to detect
+                           #################################################################################################
+                           
+                           OutlierDetectTietjen = function(x, nbOutliers){
+                           	
+                           	flag <- 0
+                           	
+                           	for(i in nbOutliers:1){
+                           		
+                           		test <- FindOutliersTietjenMooreTest(x, i)
+                           		
+                           		if(test$T < test$Talpha & flag == 0){
+                           			
+                           			datTemp <- x
+                           			
+                           			posOutlier <- NULL
+                           			
+                           			for(j in seq(from = 1, to = i, by = 1)){ 
+                           				
+                           				Outlier <- outlier(datTemp)
+                           				
+                           				positionX <- which(x == Outlier)
+                           				
+                           				positionTemp <- which(datTemp == Outlier)
+                           				
+                           				datTemp <- datTemp[-positionTemp]
+                           				
+                           				posOutlier <- c(posOutlier, positionX)
+                           			}
+                           			
+                           			flag <- 1
+                           			
+                           		} else {posOutlier <- NULL}
+                           	}
+                           	
+                           	return(posOutlier)
+                           },
+                           
+                           ##################################################################################################
+                           # Name: outlierDetection
+                           # Function: return the place of the outlier 
+                           # Input: 
+                           # 	dat: a vector of data
+                           # 	method: method of detection of the outlier (sd, Tietjen's test (generalization of the grubb's test) or Rosner test)
+                           # 	nbOutliers: number of oulier to detect
+                           #################################################################################################
+                           
+                           outlierDetection = function(dat, method, nbOutliers){
+                           	
+                           	if(method == "SD criterion"){
+                           		
+                           		ValMax <- mean(dat, na.rm = TRUE) + 2*sd(dat,na.rm = TRUE)
+                           		
+                           		ValMin <- mean(dat, na.rm = TRUE) - 2*sd(dat,na.rm = TRUE)
+                           		
+                           		position <- which(dat > ValMax | dat < ValMin)[seq(from = 1, to = nbOutliers, by = 1)]
+                           		
+                           	} else if(method == "Tietjen.Moore Test"){
+                           		
+                           		position <- self$OutlierDetectTietjen(x = dat, nbOutliers)
+                           		
+                           	} else if(method == "Rosner's test"){
+                           		
+                           		test <- suppressWarnings(rosnerTest(dat, k = nbOutliers, alpha = 0.05, warn = TRUE))
+                           		
+                           		Outliers <- test$all.stats[which(test$all.stats[,8] == TRUE), 4]
+                           		
+                           		if(length(Outliers) != 0){
+                           			position <- vapply(seq(from = 1, to = length(Outliers), by = 1),
+
+                           						 function(x){
+
+                           						 	which(dat == Outliers[x])
+
+                           						 },
+                           						 FUN.VALUE = numeric(1)
+                           			)
+                           		} else {
+                           			position <- NULL
+                           		}
+                           		
+                           	} else {}
+                           	
+                           	return(position)
+                           	
+                           },
+                           
+                           ##################################################################################################
+                           # Name: detectOutlierMatrix
+                           # Function: return the place of the outlier for each column of a matrix
+                           # Input: 
+                           # 		dat: a matrix of data
+                           # 		method: method of detection of the outlier (sd, Tietjen's test (generalization of the grubb's test) or Rosner test)
+                           # 		nbOutliers: number of oulier to detect
+                           #################################################################################################
+                           
+                           detectOutlierMatrix = function(dat, method, nbOutliers){
+                           
+                           	if(method == "Tietjen.Moore Test"){
+                           		pb <- tkProgressBar("Outlier detection", "Detection in %",
+                           					  0, 100, 0)
+                           	} else {}
+                           
+                           	if(!is.null(ncol(dat))){
+                           	res <- lapply(seq(from = 1, to = ncol(dat), by = 1), function(x){
+                           		
+                           		if(method == "Tietjen.Moore Test"){
+                           			info <- sprintf("%d%% done", round(x/ncol(dat)) * 100)
+                           			setTkProgressBar(pb, round(x/ncol(dat)) * 100, sprintf("OUtlier detection (%s)", info), info)
+                           		} else {}
+                           		
+                           		
+                           		if(x == 1){
+                           			
+                           			NULL
+                           			
+                           		} else if(!is.integer0(which(!is.na(dat[,x]) == TRUE))){
+                           			
+                           			if(self$is.possibleOutlier(dat = dat[,x])){
+                           				
+                           				self$outlierDetection(dat = dat[,x], method = method, nbOutliers)
+                           				
+                           			}else {NULL}
+                           			
+                           		} else {NULL}
+                           		
+                           		
+                           		
+                           	})
+                           }
+                           	
+                           	if(method == "Tietjen.Moore Test"){
+                           		close(pb)
+                           	} else {}
+                           	
+                           	return(res)
+                           	
+                           },
+                           
+                           ##################################################################################################
+                           # Name: outlierReplace
+                           # Function: replace the outliers value of a matrix by rempl
+                           # Input: 
+                           # 	dat: a matrix of data
+                           # 	outlierList: a list showing the place of the outlier for each column
+                           # 	rempl: the value to replace if outliers
+                           #################################################################################################
+                           
+                           outlierReplace = function(dat, outlierList, rempl){
+                           	
+                           	subDat <- vapply(seq(from = 1, to = ncol(dat), by = 1),
+                           			     
+                           			     function(x){
+                           			     	
+                           			     	if(!is.null(outlierList[[x]])){
+                           			     		
+                           			     		dat[outlierList[[x]],x] <- rempl
+                           			     		
+                           			     		return(dat[,x])
+                           			     		
+                           			     	} else {dat[,x]}
+                           			     	
+                           			     }, 
+                           			     FUN.VALUE = double(nrow(dat))
+                           			     )
+                           	
+                           	colnames(subDat) <- colnames(dat)
+                           	
+                           	return(subDat)
+                           },
+                           
+                           ##################################################################################################
+                           # Name: is.possibleOutlier
+                           # Function: check that the vector fits with the needs for outlier detection (length of data > 30...)
+                           # Input: dat: a vector of data
+                           ##################################################################################################
+                           
+                           is.possibleOutlier = function(dat){
+                           	
+                           	temp <- dat[which(!is.na(dat))]
+                           	
+                           	if(length(temp) < 30){
+                           		FALSE
+                           	} else if(length(which(duplicated(dat) == F)) == 1){
+                           		FALSE
+                           	} else {TRUE}
+                           	
+                           },
+                           
+                           ##################################################################################################
+                           # Name: reset
+                           # Function: Reset the dataConcCorr
+                           ##################################################################################################
                            
                            reset = function(){
                              self$dataConcCorr <- NA
@@ -272,33 +479,40 @@ elementR_standard <- R6Class("elementR_standard",
                                   dataOutlierFree = NA, # A matrix corresponding to the self$dataNorm without abnomalities
                                   data_standFinalMean = NA, # A vector corresponding to the average of self$dataOutlierFree per chemical element
                                   data_standFinalSD = NA, # A vector corresponding to the standard deviation of self$dataOutlierFree per chemical element
-                                  type = "standard", # A character string indicating the type of replicate (here, "standard")             
+                                  type = "standard", # A character string indicating the type of replicate (here, "standard")   
                                   
                                   ##################################################################################################
                                   # Name: setDataOutlierFree
                                   # Function: set self$dataOutlierFree
-                                  # Input: bins = bins = A vector of numerical values corresponding to the time at which begins and ends the blank values, plat = a vector of two numerical values corresponding respectively to the time at which begin and end the plateau
+                                  # Input: 
+                                  # 	bins = A vector of numerical values corresponding to the time at which begins and ends the blank values
+                                  # 	plat = a vector of two numerical values corresponding respectively to the time at which begin and end the plateau
+                                  # 	rempl = value to replace outliers
+                                  # 	method = the method used to detect outlier (sd criterion, Rosner test, Grubbs test (generalization of the grubb's test))
+                                  # 	nbOutliers = nb of outlier to detect
                                   ##################################################################################################
                                   
-                                  setDataOutlierFree = function(bins, plat, rempl){
-                                    
-                                    self$setDataNorm(bins,plat, rempl)
-                                    
-                                    ValMax <- apply(self$dataNorm[,-1], 2, function(k){mean(k, na.rm = TRUE) + 2*sd(k,na.rm = TRUE)})
-                                                                        
-                                    ValMin <- apply(self$dataNorm[,-1], 2, function(k){mean(k, na.rm = TRUE) - 2*sd(k,na.rm = TRUE)})
-                                                                        
-                                    subDat <- do.call(rbind,lapply(1:dim(self$dataNorm[,-1])[1], function(z){
-                                      
-                                      l <- self$dataNorm[z,-1]
-                                      l[l < ValMin | l > ValMax] <- NA
-                                      l
-                                      
-                                    }))
-                                    
-                                    self$dataOutlierFree <- cbind(as.matrix(self$dataNorm[,1]),subDat)
-                                    
-                                  }, 
+                                  setDataOutlierFree = function(bins, plat, rempl, method, nbOutliers){
+                                  	
+                                  	self$setDataNorm(bins,plat, rempl)
+                                  	
+                                  	dat <- self$dataNorm
+                                  	
+                                  	if(is.null(method)){
+                                  		method <- "Rosner's test"
+                                  	} else {}
+                                  	
+                                  	if(is.null(rempl)){
+                                  		rempl <- NA
+                                  	} else {}
+                                  	
+                                  	outlierList <- self$detectOutlierMatrix(dat, method = method, nbOutliers)
+
+                                  	self$dataOutlierFree <- self$outlierReplace(dat, outlierList, rempl = rempl)
+                                  	
+                                  	suppressWarnings(mode(self$dataOutlierFree) <- "numeric")
+
+                                  },
                                   
                                   ##################################################################################################
                                   # Name: setdata_standFinal
@@ -317,7 +531,7 @@ elementR_standard <- R6Class("elementR_standard",
                                   # Output:  a matrix of the required data
                                   ##################################################################################################
                                   
-                                  getData = function(curve, bins, plat, rempl){
+                                  getData = function(curve, bins, plat, rempl, method, nbOutliers){
                                     
                                     if(curve =="Blank") {self$setDataBlanc(bins = bins)
                                                          return(self$dataBlank)} else {}
@@ -337,7 +551,7 @@ elementR_standard <- R6Class("elementR_standard",
                                     if(curve =="Normalized") {self$setDataNorm(bins = bins,plat = plat, rempl = rempl)
                                                               return(self$dataNorm) } else {}
                                     
-                                    if(curve =="Outliers free") {self$setDataOutlierFree(bins = bins,plat = plat, rempl = rempl)
+                                    if(curve =="Outliers free") {self$setDataOutlierFree(bins = bins,plat = plat, rempl = rempl, method, nbOutliers)
                                                                  return(self$dataOutlierFree) } else {}
                                   },
                                   
@@ -385,18 +599,27 @@ elementR_sample <- R6Class("elementR_sample",
                              ##################################################################################################
                              # Name: setDataConc
                              # Function: set self$dataConc
-                             # Input:  bins = A vector of numerical values corresponding to the time at which begins and ends the blank values, plat = a vector of two numerical values corresponding respectively to the time at which begin and end the plateau, calibFile = a matrix corresponding to the data of the calibration file, meanStand = a vector containing the averaged signal intensity per chemical element for all standard replicates of the running session, rempl = the value replacing data if below the limit of detection
+                             # Input:  
+                             #	bins = A vector of numerical values corresponding to the time at which begins and ends the blank values
+                             #	plat = a vector of two numerical values corresponding respectively to the time at which begin and end the plateau
+                             #	calibFile = a matrix corresponding to the data of the calibration file
+                             #	meanStand = a vector containing the averaged signal intensity per chemical element for all standard replicates of the running session
+                             #	rempl = the value replacing data if below the limit of detection
                              ##################################################################################################
                              
                              setDataConc = function(bins, plat, calibFile, meanStand, rempl){
                                
                                self$setDataNorm(bins = bins, plat = plat, rempl = rempl)
                                                            
-                               temp <- sapply(2:ncol(self$dataNorm), function(x){
-
-                                 self$dataNorm[,x] * calibFile[1,x]/ meanStand[x-1]
-                                 
-                                 })
+                               temp <- vapply(seq(from = 2, to = ncol(self$dataNorm), by = 1),
+                               		   
+                               		   function(x){
+                               		   	
+                               		   	self$dataNorm[,x] * calibFile[1,x]/ meanStand[x-1]},
+                               		   
+                               		   FUN.VALUE = double(nrow(self$dataNorm))
+                               		   
+                               		   )
                                
                                self$dataConc <- cbind(as.matrix(self$dataNorm[,1]),temp)
                                
@@ -407,32 +630,102 @@ elementR_sample <- R6Class("elementR_sample",
                              ##################################################################################################
                              # Name: setDataConcCorr
                              # Function: set self$dataConcCorr
-                             # Input: bins = a numerical value corresponding to the time at which end the blank values, plat = a vector of two numerical values corresponding respectively to the time at which begin and end the plateau, name = a character string corresponding to the name of the sample replicates, calibFile = a matrix corresponding to the the calibration file, meanStand = a vector containing the averaged signal intensity per chemical element for all standard replicates of the running session, rank = a vector containing the rank of each sample in ICPMS analysis, correction = a vector indicating the chemical elements to correct from machine drift, model = the matrix containing the parameters of the linear regression corresponding to machine drift for all chemical elements
+                             # Input: 
+                             #	bins = a numerical value corresponding to the time at which end the blank values
+                             #	plat = a vector of two numerical values corresponding respectively to the time at which begin and end the plateau
+                             # 	name = a character string corresponding to the name of the sample replicates
+                             #	calibFile = a matrix corresponding to the the calibration file
+                             # 	meanStand = a vector containing the averaged signal intensity per chemical element for all standard replicates of the running session
+                             # 	rankSample = a vector containing the rank of each sample in ICPMS analysis
+                             # 	rankStandard = a vector containing the rank of each standard in ICPMS analysis
+                             # 	correction = a vector indicating the chemical elements to correct from machine drift
+                             # 	model = the matrix containing the parameters of the linear regression corresponding to machine drift for all chemical elements
                              ##################################################################################################
 
-                             setDataConcCorr = function(bins, plat, name, calibFile, meanStand, rank, model, correction, rempl){
+                             setDataConcCorr = function(bins, plat, name, calibFile, meanStand, rankSample, rankStandard, model, correction, rempl,threshold){
+
+                             	if(is.null(threshold)){
+                             		threshold <- 0.75
+                             	} else {}
                                
                                self$setDataConc(bins = bins, plat = plat, calibFile = calibFile, meanStand = meanStand, rempl = rempl)
                                
-                               rank <- rank[which(names(rank) == name)]
+                               rankSampleConsidered <- rankSample[which(names(rankSample) == name)]
                                
-                               temp <- sapply(2:ncol(self$dataNorm), function(x){
-                                 
-                                 if(correction[x-1] == FALSE){
-                                   
-                                   return(self$dataNorm[,x] * calibFile[1,x]/ meanStand[x-1])
-                                   
-                                 }
-                                 if(correction[x-1] == TRUE){
-                                   
-                                   StandTheoric <- model[x-1,5] + rank * model[x-1, 6]
-                                   
-                                   return(self$dataNorm[,x] * calibFile[1,x] / StandTheoric)
-                                   
-                                 }           
-                               })
-                               
-                               
+                               temp <- vapply(seq(from = 2, to = ncol(self$dataNorm), by = 1),
+                               		   
+                               		   function(x){
+                               		   	
+                               		   	if(correction[x-1] == FALSE){ # No correction
+                               		   		
+                               		   		return(self$dataNorm[,x] * calibFile[1,x]/ meanStand[nrow(meanStand)-1, x-1])
+                               		   		
+                               		   	}
+                               		   	
+                               		   	if(correction[x-1] == TRUE){ # correction asked by user
+                               		   		
+                               		   		# reminder model[x-1,7] == R2
+                               		   		if(!is.na(model[x-1,7])){
+                               		   			
+                               		   			if(model[x-1,7] < threshold){ # the model is not a linear regression
+                               		   				
+                               		   				Standard1 <- which(abs(rankStandard - rankSampleConsidered) == min(abs(rankStandard - rankSampleConsidered)))[1]
+                               		   				
+                               		   				if(rankSampleConsidered > max(rankStandard)){
+                               		   					
+                               		   					Standard2 <- max(rankStandard)
+                               		   					names(Standard2) <- names(rankStandard)[which(rankStandard == max(rankStandard))]
+                               		   					
+                               		   				} else if(rankSampleConsidered < min(rankStandard)){
+                               		   					
+                               		   					Standard2 <- min(rankStandard)
+                               		   					names(Standard2) <- names(rankStandard)[which(rankStandard == min(rankStandard))]
+                               		   					
+                               		   				} else if(rankSampleConsidered < rankStandard[Standard1]){
+                               		   					
+                               		   					Standard2 <- rankStandard[Standard1-1]
+                               		   					names(Standard2) <- names(rankStandard)[which(rankStandard == rankStandard[Standard1-1])]
+                               		   					
+                               		   				} else {
+                               		   					Standard2 <- rankStandard[Standard1+1]
+                               		   					names(Standard2) <- names(rankStandard)[which(rankStandard == rankStandard[Standard1+1])]
+                               		   				}
+                               		   				
+                               		   				stand1Value <- meanStand[which(rownames(meanStand) == paste0(names(Standard1), " Mean")), x-1]
+                               		   				stand2Value <- meanStand[which(rownames(meanStand) == paste0(names(Standard2), " Mean")), x-1]
+                               		   				
+                               		   				if(Standard1 == Standard2){
+                               		   					
+                               		   					StandTheoric <- meanStand[which(rownames(meanStand) == paste0(names(Standard2), " Mean")), x-1]
+                               		   					
+                               		   				} else if(stand1Value == stand2Value){
+                               		   					
+                               		   					StandTheoric <- 1
+                               		   					
+                               		   				} else {
+                               		   					
+                               		   					modelneighbor <- lm(c(stand1Value, stand2Value) ~ c(Standard1, Standard2))
+                               		   					
+                               		   					StandTheoric <- modelneighbor$coefficients[1] + rankSampleConsidered * modelneighbor$coefficients[2]
+                               		   				}
+                               		   				
+                               		   				return(self$dataNorm[,x] * calibFile[1,x] / StandTheoric)
+                               		   				
+                               		   			} else { # the model seems to be a linear regression
+                               		   				
+                               		   				StandTheoric <- model[x-1,5] + rankSampleConsidered * model[x-1, 6]
+                               		   				
+                               		   				return(self$dataNorm[,x] * calibFile[1,x] / StandTheoric)	
+                               		   				
+                               		   			}
+                               		   			
+                               		   		} else {return(rep(NA, nrow(dat)))}
+                               		   		
+                               		   	}
+                               		   	
+                               		   	},
+                               		   FUN.VALUE = double(nrow(self$dataNorm))
+                               		   )
                                
                                tabTemp <- cbind(as.matrix(self$dataNorm[,1]),temp)
                                
@@ -449,7 +742,7 @@ elementR_sample <- R6Class("elementR_sample",
                              # Output: a matrix of the required data
                              ##################################################################################################
                              
-                             getData = function(curve, bins, plat, name, meanStand, rank, model, calibFile, correction, rempl){
+                             getData = function(curve, bins, plat, name, meanStand, rankSample, rankStandard, model, calibFile, correction, rempl,threshold){
                               
                                if(curve =="Blank") {self$setDataBlanc(bins = bins)
                                                          return(self$dataBlank)}
@@ -472,7 +765,7 @@ elementR_sample <- R6Class("elementR_sample",
                                if(curve =="Concentration") {self$setDataConc(bins = bins, plat = plat, calibFile = calibFile, meanStand = meanStand, rempl = rempl)
                                                                  return(self$dataConc) }
                                
-                               if(curve == "Conc. corrected") {self$setDataConcCorr(bins = bins, plat, name, calibFile = calibFile, meanStand = meanStand, rank = rank, model = model, correction = correction, rempl = rempl)
+                               if(curve == "Conc. corrected") {self$setDataConcCorr(bins = bins, plat, name, calibFile = calibFile, meanStand = meanStand, rankSample = rankSample, rankStandard = rankStandard, model = model, correction = correction, rempl = rempl, threshold = threshold)
                                                                     return(self$dataConcCorr)}
                                
                              },
@@ -540,11 +833,116 @@ elementR_project <- R6Class("elementR_project",
                               elemStand = NA, # A character string indicating the chemical element considered as internal standard (by default = Ca)
                               summarySettings = matrix(), # A matrix summarizing all the parameters set by user for each replicate (sample and standard)
                               ChoiceUserCorr = NA, # a logical value corresponding to the choice of the user to correct or no the session based on the first step of configuration
+                              R2Threshold = NA, #the threshold to pass from a machien drift correction from a linear to a neighbor correction
+                              
+                              ##################################################################################################
+                              # Name: setR2Threshold
+                              # Function: set R2Threshold
+                              # inputs: x a value between 0 and 1
+                              ##################################################################################################
+                              
+                              setR2Threshold = function(x){
+                              	self$R2Threshold <- x
+                              },
+                              
+                              ##################################################################################################
+                              # Name: insert.at
+                              # Function: insert values in vectors
+                              # inputs: a = a vector, pos =  the position to insert,  toInsert = a vector to insert
+                              ##################################################################################################
+                              
+                              insert.at = function(a, pos, toInsert){
+                              	dots <- list(toInsert)
+                              	stopifnot(length(dots)==length(pos))
+                              	result <- vector("list",2*length(pos)+1)
+                              	result[c(TRUE,FALSE)] <- split(a, cumsum(seq_along(a) %in% (pos)))
+                              	result[c(FALSE,TRUE)] <- dots
+                              	unlist(result)
+                              },
+                              
+                              ##################################################################################################
+                              # Name: detectPlateau
+                              # Function: detection of the plateau limits
+                              # inputs: dat = the data to proceed, col =  the column used for the detection 
+                              ##################################################################################################
+                              
+                              detectPlateau = function(dat, col){
+                              	
+                              	if(!is.null(dat)){
+                              		naLines <- which(is.na(dat[,col]))
+                              		
+                              		kmean <- kmeans(na.omit(dat[,col]),2, algorithm = "Hartigan-Wong")
+                              		
+                              		if(!self$is.integer0(naLines)){
+                              			temp <- self$insert.at(kmean$cluster, naLines, rep(NA, length(naLines)))
+                              		} else {
+                              			temp <- kmean$cluster
+                              		}
+                              		
+                              		dat1 <- cbind(dat, temp)
+                              		
+                              		datList <- list(dat1[which(dat1[,ncol(dat1)] == 1),], dat1[which(dat1[,ncol(dat1)] == 2),])
+                              		
+                              		meanStand <- vapply(seq(from = 1, to = length(datList), by = 1),
+                              					  
+                              					  function(x){
+                              					  	
+                              					  	mean(datList[[x]][,col])
+                              					  	
+                              					  },
+                              					  FUN.VALUE = numeric(1)
+                              		)
+                              		
+                              		plateau <- which(meanStand == max(meanStand))
+                              		
+                              		limitPlateau <- c(dat1[which(kmean$cluster == plateau)[1],1], dat1[which(kmean$cluster == plateau)[length(which(kmean$cluster == plateau))],1])
+                              		
+                              		return(limitPlateau)
+                              	} else {return(c(NA, NA))}
+                              	
+
+                              	
+                              },
+                              
+                              ##################################################################################################
+                              # Name: detectBlank
+                              # Function: detection of the blank limits
+                              # inputs: dat = the data to proceed, col =  the column which is used for the detection 
+                              ##################################################################################################
+                              
+                              detectBlank = function(dat, col){
+                              	
+                              	if(!is.null(dat)){
+                              		
+                              		rolMedian <- rollmedian(dat[,col], 3)
+                              		
+                              		deriv1 <- vapply(seq(from = 1, to = length(rolMedian), by = 1), 
+                              				     
+                              				     function(x){
+                              				     	
+                              				     	(rolMedian[x+1] - rolMedian[x])/(dat[x+1,1] - dat[x,1])
+                              				     	
+                              				     },
+                              				     FUN.VALUE = numeric(1)
+                              		)
+                              		
+                              		maxDeriv1 <- max(deriv1, na.rm = TRUE)
+                              		
+                              		endBlank <- which(deriv1 == maxDeriv1)[1] - 1
+                              		
+                              		return(c(1,dat[endBlank,1]))	
+                              	} else {
+                              		return(c(NA,NA))
+                              	}
+                              	
+
+                              	
+                              },
                               
                               ##################################################################################################
                               # Name: set_ChoiceUserCorr
                               # Function: set self$ChoiceUserCorr
-                              # inputs: x = T (for checking machine drift), F (for not checking machine drift)
+                              # inputs: x = TRUE (for checking machine drift), F (for not checking machine drift)
                               ##################################################################################################
                               
                               set_ChoiceUserCorr = function(x){
@@ -561,7 +959,7 @@ elementR_project <- R6Class("elementR_project",
                               
                               set_summarySettings = function(name, rank, bins1, bins2, plat1, plat2, average, LOD){
 
-                                self$summarySettings[which(rownames(self$summarySettings) == name),] <- c(name, rank, bins1, bins2, plat1,plat2, average, LOD)
+                                self$summarySettings[which(rownames(self$summarySettings) == name),] <- c(name, rank, bins1, bins2, plat1, plat2, average, LOD)
                      
                               },
                               
@@ -588,11 +986,11 @@ elementR_project <- R6Class("elementR_project",
                                 if(is.null(y)){}
                                 else if(is.na(y)){}
                                 else{
-                                  val[[2]] = which(abs(x-y) == min(abs(x-y), na.rm = TRUE))
-                                  val[[1]] = x[val[[2]]]
+                                  val[[2]] <- which(abs(x-y) == min(abs(x-y), na.rm = TRUE))
+                                  val[[1]] <- x[val[[2]]]
                                   
-                                  if (length(val[[1]])!=1){val[[2]] = min(val[[2]], na.rm = TRUE)
-                                                            val[[1]] = x[val[[2]]]
+                                  if (length(val[[1]])!=1){val[[2]] <- min(val[[2]], na.rm = TRUE)
+                                                            val[[1]] <- x[val[[2]]]
                                   } else {}
                                   
                                   names(val) <- c("the nearest", "place")
@@ -613,13 +1011,13 @@ elementR_project <- R6Class("elementR_project",
                                 self$elemStand <- elem
                                 
                                 #transmit to standards
-                                lapply(1:length(self$standards[[1]]$rep_data), function(x){
+                                lapply(seq(from = 1, to = length(self$standards[[1]]$rep_data), by = 1), function(x){
                                   self$standards[[1]]$rep_data[[x]]$setElemStand(elem)
                                 })
                                 
                                 #transmit to samples
-                                lapply(1:length(self$samples), function(x){
-                                  lapply(1: length(self$samples[[x]]$rep_data), function(y){
+                                lapply(seq(from = 1, to = length(self$samples), by = 1), function(x){
+                                  lapply(seq(from = 1, to = length(self$samples[[x]]$rep_data), by = 1), function(y){
                                     self$samples[[x]]$rep_data[[y]]$setElemStand(elem)
                                   })                                  
                                 })
@@ -657,13 +1055,13 @@ elementR_project <- R6Class("elementR_project",
                                 axis(2)
                                 axis(1, at = coord, labels = name)
                                 points(coord,Mean)
-                                invisible(lapply(1:length(Mean), function(x){
+                                invisible(lapply(seq(from = 1, to = length(Mean), by = 1), function(x){
                                   segments(coord[x], Mean[x]-SD[x], coord[x], Mean[x]+SD[x])
                                 }))
-                                invisible(lapply(1:length(Mean), function(x){
+                                invisible(lapply(seq(from = 1, to = length(Mean), by = 1), function(x){
                                   segments((coord[x]-lengthSeg),Mean[x]+SD[x],(coord[x]+lengthSeg),Mean[x]+SD[x])
                                 }))
-                                invisible(lapply(1:length(Mean), function(x){
+                                invisible(lapply(seq(from = 1, to = length(Mean), by = 1), function(x){
                                   segments((coord[x]-lengthSeg),Mean[x]-SD[x],(coord[x]+lengthSeg),Mean[x]-SD[x])
                                 }))
                               }, 
@@ -678,15 +1076,17 @@ elementR_project <- R6Class("elementR_project",
                                 
                                 temp <- readData(x, sep = sep, dec = dec)
 
-                                Num <- unlist(sapply(2:ncol(temp), function(x){
+                                Num <- vapply(seq(from = 2, to = ncol(temp), by = 1),
+                                			   
+                                			   function(x){
                                   
-                                  if(is.numeric(temp[1,x])){
-                                    
-                                  } else {FALSE}
-                                    
-                                }))
+                                			   	if(is.numeric(temp[1,x])){TRUE} else {FALSE}
+                                			   	
+                                			   	},
+                                			   FUN.VALUE = logical(1)
+                                			   )
                                 
-                                if(identical(colnames(temp)[2:ncol(temp)],colnames(self$standards[[1]]$rep_data[[1]]$data)[2:ncol(temp)]) & is.null(Num)){
+                                if(identical(colnames(temp)[2:ncol(temp)],colnames(self$standards[[1]]$rep_data[[1]]$data)[2:ncol(temp)]) & length(which(Num == FALSE)) == 0){
                                   
                                   self$EtalonPath <- x                                  
                                   self$EtalonData <- readData(x, sep = sep, dec = dec)
@@ -724,7 +1124,7 @@ elementR_project <- R6Class("elementR_project",
                                   
                                   for(i in col){
 
-                                    for(j in 1:nrow(data)){
+                                    for(j in seq(from = 1, to = nrow(data), by = 1)){
                                       
                                       if(!is.numeric(data[j,i])){
                                         
@@ -793,45 +1193,52 @@ elementR_project <- R6Class("elementR_project",
                                 
                                 Nbelem <- length(self$listeElem)
                                 
-                                self$regressionModel <- matrix(data = NA, nrow = Nbelem, ncol = 6)
-                                colnames(self$regressionModel) <- c("Norm.", "Homosc.","Indep.", "Regress.Test", "intercept","A")
+                                # creation of self$regressionModel, i.e. final table with all regression parameters
+                                self$regressionModel <- matrix(data = NA, nrow = Nbelem, ncol = 7)
+                                colnames(self$regressionModel) <- c("Norm.", "Homosc.","Indep.", "Regress.Test", "intercept","A", "R2")
                                 rownames(self$regressionModel) <- self$listeElem
                                 
-                                # construction du model
+                                # Building the linear regression
                                 temp <- str_sub(rownames(temporaryTab), 1, -6)
                                 
+                                # creation of X (i.e.the xcoordinates), Y (i.e. the ycoordinates) of the standards values
                                 X <- vector()
-                                for (i in 1:length(self$standardsFiles)){
+                                for (i in seq(from = 1, to = length(self$standardsFiles), by = 1)){
                                   X[i] <- self$standardRank[which(names(self$standardRank) == temp[i])] 
                                   
                                 }
                                 
-                                for(j in 1:(Nbelem)){
-                                  Y <- temporaryTab[1:length(self$standardsFiles),j]
+                                for(j in seq(from = 1, to = Nbelem, by = 1)){
+                                  Y <- temporaryTab[seq(from = 1, to = length(self$standardsFiles), by = 1),j]
                                   
-                                  tempoR <- sapply(1:length(Y), function(x){                                    
-                                    if(is.finite(Y[x])){TRUE
-                                    } else {FALSE}
-                                  })
+                                  tempoR <- vapply(seq(from = 1, to = length(Y), by = 1), 
+                                  		     function(x){  
+                                  	
+                                  		     	if(is.finite(Y[x])){TRUE} else {FALSE}
+                                  		     	}, 
+                                  		     FUN.VALUE = logical(1)
+                                  		     )
                                   
+                                  # self$nbCalib, i.e. a vector indicating for each element how many standard value is available
                                   self$nbCalib[j] <- length(which(tempoR == TRUE))
                                   
                                   if(self$nbCalib[j] == 0){ 
                                     
-                                    self$regressionModel[j, 1:6] <- rep(NA, 6)
+                                    self$regressionModel[j, 1:7] <- rep(NA, 7)
                                     
                                   } else if(self$nbCalib[j] == 1){
                                     
                                     res_test <- vector()
                                     
-                                    tempNum <- which(sapply(1:length(Y), function(x){
-                                      
-                                      if(is.finite(Y[x])){TRUE
-                                      } else {FALSE}
-                                      
-                                    }) == TRUE)
-                                    
-                                    toDo <- tempNum
+                                    toDo <- which(vapply(seq(from = 1, to = length(Y), by = 1), 
+                                    			   
+                                    			   function(x){
+                                    			   	
+                                    			   	if(is.finite(Y[x])){TRUE} else {FALSE}
+                                    			   	
+                                    			   	}, 
+                                    			   FUN.VALUE = logical(1)
+                                    			   ) == TRUE)
                                     
                                     y <- Y[toDo]
                                     
@@ -841,24 +1248,26 @@ elementR_project <- R6Class("elementR_project",
                                     
                                     res_test[1:4] <- NA
                                     res_test[5:6] <- c(intercept , slope)
+                                    res_test[7] <- NA
                                     
-                                    self$regressionModel[j, 1:6] <- res_test
+                                    self$regressionModel[j, 1:7] <- res_test
                                     
                                   } else if(self$nbCalib[j] == 2){
                                     
                                     res_test <- vector()
                                     
-                                    tempNum <- which(sapply(1:length(Y), function(x){
-                                      
-                                      if(is.finite(Y[x])){TRUE}
-                                      else{FALSE}                                    
-                                      
-                                    }) == TRUE)
+                                    toDo <- which(vapply(seq(from = 1, to = length(Y), by = 1), 
+                                    			   
+                                    			   function(x){
+                                    			   	
+                                    			   	if(is.finite(Y[x])){TRUE} else {FALSE}
+                                    			   	
+                                    			   }, 
+                                    			   FUN.VALUE = logical(1)
+                                    ) == TRUE)
                                     
-                                    toDo <- tempNum
-                                    
-                                    y <- Y[toDo]
-                                    x <- X[toDo]
+                                    y <- Y[toDo] # the real yvalues to build the model
+                                    x <- X[toDo] # the real xvalues to build the model
                                     
                                     slope <- (y[2] - y[1])/(x[2] - x[1])
                                     
@@ -866,17 +1275,17 @@ elementR_project <- R6Class("elementR_project",
                                     
                                     res_test[1:4] <- NA
                                     res_test[5:6] <- c(intercept , slope)
+                                    res_test[7] <- NA
                                     
-                                    self$regressionModel[j, 1:6] <- res_test
+                                    self$regressionModel[j, 1:7] <- res_test
                                     
-                                  } else if(self$nbCalib[j] == 3){
+                                  } else if(self$nbCalib[j] == 3){ # need to differentiate self$nbCalib[j] == 3 and self$nbCalib[j] > 3 because of the hmctest
                                     
-                                    if(length(which(Y != 1)) == 0){
-                                      res_test <- c(NA,NA,NA,NA,1, 0)
-                                      self$regressionModel[j, 1:6] <- res_test
+                                    if(length(which(Y != 1)) == 0){ # check that at least one value is different than the other (avoid internal standard problem)
+                                      res_test <- c(NA,NA,NA,NA,1, 0, NA)
+                                      self$regressionModel[j, 1:7] <- res_test
                                       
-                                    } else {
-                                      
+                                    } else { 
                                       model <- lm(Y~X)
                                       
                                       # tests 
@@ -889,15 +1298,16 @@ elementR_project <- R6Class("elementR_project",
                                       res_test[3] <- dwtest(model)$p.value
                                       res_test[4] <- summary(model)$coefficients[2,4]                                      
                                       res_test[5:6] <- summary(model)$coefficients[,1]
+                                      res_test[7] <- summary(model)$r.squared
                                       
-                                      self$regressionModel[j, 1:6] <- res_test
+                                      self$regressionModel[j, 1:7] <- res_test
                                     }
                                     
-                                  } else if(self$nbCalib[j] > 3){
+                                  } else if(self$nbCalib[j] > 3){ 
                                     
                                     if(length(which(Y != 1)) == 0){
-                                      res_test <- c(NA,NA,NA,NA,1, 0)
-                                      self$regressionModel[j, 1:6] <- res_test
+                                      res_test <- c(NA,NA,NA,NA,1, 0, NA)
+                                      self$regressionModel[j, 1:7] <- res_test
                                     } else {
                                       
                                       model <- lm(Y~X)
@@ -912,8 +1322,9 @@ elementR_project <- R6Class("elementR_project",
                                       res_test[3] <- dwtest(model)$p.value
                                       res_test[4] <- summary(model)$coefficients[2,4]                                      
                                       res_test[5:6] <- summary(model)$coefficients[,1]
-                                      
-                                      self$regressionModel[j, 1:6] <- res_test
+                                      res_test[7] <- summary(model)$r.squared
+
+                                      self$regressionModel[j, 1:7] <- res_test
                                     }
                                     
                                   } else {}
@@ -986,11 +1397,11 @@ elementR_project <- R6Class("elementR_project",
                                 
                                 self$listeElem <- toCheck
                                 
-                                for (i in 1: length(files)){
+                                for (i in seq(from = 1, to = length(files), by = 1)){
                                   
                                   dat <- readData(files[i], sep = sep, dec = dec)
                                   
-                                  nbNumError <- self$NonNumericCheck(data = dat, col = 1:ncol(dat))
+                                  nbNumError <- self$NonNumericCheck(data = dat, col = seq(from = 1, to = ncol(dat), by = 1))
                                   
                                   if(nbNumError != 0){nonNumPlace <- c(nonNumPlace, files[i])}
                                   
@@ -1005,9 +1416,9 @@ elementR_project <- R6Class("elementR_project",
                                 setwd(paste0(folderPath, "/samples"))
                                 files <- list.files(, recursive = TRUE)
                                 
-                                for (i in 1: length(files)){                                  
+                                for (i in seq(from = 1, to = length(files), by = 1)){                                  
                                   dat <- readData(files[i], sep = sep, dec = dec)
-                                  nbNumError <- self$NonNumericCheck(data = dat, col = 1:ncol(dat))
+                                  nbNumError <- self$NonNumericCheck(data = dat, col = seq(from = 1, to = ncol(dat), by = 1))
                                   
                                   if(nbNumError != 0){nonNumPlace <- c(nonNumPlace, files[i])}
                                   
@@ -1061,20 +1472,22 @@ elementR_project <- R6Class("elementR_project",
                                 self$flag_stand <- rep(0, length(self$standardsFiles))
                                 names(self$flag_stand) <- self$standardsFiles
                                 
-                                flagTemp <- lapply(1:length(self$samplesFiles), function(x){dir(paste0(folderPath,"/samples/",self$samplesFiles[x]))})
-                                self$flag_Sample <- lapply(1: length(flagTemp), function(x){ r <- rep(0, length(flagTemp[[x]])) ; names(r) <- flagTemp[[x]] ; r})              
+                                flagTemp <- lapply(seq(from = 1, to = length(self$samplesFiles), by = 1), function(x){dir(paste0(folderPath,"/samples/",self$samplesFiles[x]))})
+                                self$flag_Sample <- lapply(seq(from = 1, to = length(flagTemp), by = 1), function(x){ r <- rep(0, length(flagTemp[[x]])) ; names(r) <- flagTemp[[x]] ; r})              
                                 
-                                self$flagRealign <- lapply(1:length(self$samplesFiles),function(x){
+                                self$flagRealign <- lapply(seq(from = 1, to = length(self$samplesFiles), by = 1),function(x){
                                   temp1 <- c(0,0)
                                   names(temp1) <- c("spot", "raster")
                                   return(temp1)
                                 }) # lapply
                                 
-                                self$summarySettings <- matrix(NA, nrow = length(self$standardsFiles)+sum(unlist(lapply(1:length(self$samplesFiles), function(x){length(self$samples[[x]]$rep_data)}))), ncol = (ncol(dat)-1)*2 + 6)
+                                self$summarySettings <- matrix(NA, nrow = length(self$standardsFiles)+sum(unlist(lapply(seq(from = 1, to = length(self$samplesFiles), by = 1), function(x){length(self$samples[[x]]$rep_data)}))), ncol = (ncol(dat)-1)*2 + 6)
                                 
-                                toInsert <- sapply(1:length(str_split(list.files(paste0(folderPath,"/samples"), recursive = T),"/")), function(k){
-                                  str_split(list.files(paste0(folderPath,"/samples"), recursive = T),"/")[[k]][2]
-                                })
+                                toInsert <- vapply(seq(from = 1, to = length(str_split(list.files(paste0(folderPath,"/samples"), recursive = TRUE),"/")), by = 1), 
+                                			 function(k){
+                                			 	str_split(list.files(paste0(folderPath,"/samples"), recursive = TRUE),"/")[[k]][2]
+                                			 	},
+                                			 FUN.VALUE = character(1))
                                 
                                 rownames(self$summarySettings) <- c(self$standardsFiles, toInsert)
                                 if(ncol(dat) != 1){
@@ -1091,6 +1504,7 @@ elementR_project <- R6Class("elementR_project",
                                 
 
                               }
+                              
                             ),#public
                             private = list(
                               aMethod = function() self$name
@@ -1118,8 +1532,17 @@ elementR_rep <- R6Class("elementR_rep",
                           ##################################################################################################
                           
                           setRep_pas = function(){
+                          	
+                            self$rep_pas <- round(mean(unlist(lapply(seq(from = 1, to = length(self$rep_data), by = 1),
+                            						     function(x){
+                            						     		vapply(seq(from = 1, to = (length(self$rep_data[[x]])-1), by = 1), 
+                            						     			 function(i){
+                            						     			 	self$rep_data[[x]]$data[i+1,1]-self$rep_data[[x]]$data[i,1]},
+                            						     			 FUN.VALUE = numeric(1)
+                            						     			 )
+                            						     }
+                            						     )), na.rm = TRUE),4)
                             
-                            self$rep_pas <- round(mean(unlist(lapply(1:length(self$rep_data),function(x){sapply(1:(length(self$rep_data[[x]])-1), function(i){self$rep_data[[x]]$data[i+1,1]-self$rep_data[[x]]$data[i,1]})})), na.rm = TRUE),4)
                             
                           },
                           
@@ -1162,7 +1585,7 @@ elementR_repStandard <- R6Class("elementR_repStandard",
                                                                   
                                  listTemp <- list()
                                  
-                                 for(i in 1:length(self$rep_Files)){listTemp[[i]] <- self$rep_data[[i]]$data_standFinalMean}
+                                 for(i in seq(from = 1, to = length(self$rep_Files), by = 1)){listTemp[[i]] <- self$rep_data[[i]]$data_standFinalMean}
                                                                   
                                  dataTemp <- do.call(rbind,listTemp)
                                  
@@ -1185,14 +1608,14 @@ elementR_repStandard <- R6Class("elementR_repStandard",
                                  
                                  rownames(tab) <- c(paste(self$rep_Files, "Mean"),paste(self$rep_Files, "SD"),"Total Mean", "Total SD")
                                  
-                                 for(i in 1:length(self$rep_Files)){
+                                 for(i in seq(from = 1, to = length(self$rep_Files), by = 1)){
                                    
                                    self$rep_data[[i]]$setdata_standFinal()
                                    
                                    tab[i,] <- self$rep_data[[i]]$data_standFinalMean
                                  }                                  
                                  
-                                 for(i in 1:length(self$rep_Files)){tab[i+length(self$rep_Files),] <- self$rep_data[[i]]$data_standFinalSD }
+                                 for(i in seq(from = 1, to = length(self$rep_Files), by = 1)){tab[i+length(self$rep_Files),] <- self$rep_data[[i]]$data_standFinalSD }
                                  
                                  self$setrep_FinalMeanSD()
                                  
@@ -1230,6 +1653,45 @@ elementR_repSample <- R6Class("elementR_repSample",
                                rep_dataFinalSpot = NA, # A matrix containing the average and the standard deviation per chemical element of the final replicates (i.e. chosen to be part of the final calculation)
                                rep_dataIntermRaster = NA, # A list containing the realigned self$dataNorm of the final replicates (i.e. chosen to be part of the final calculation)
                                rep_dataFinalRaster = NA, # A matrix corresponding to the averaging of the data contained in self$rep_dataIntermRaster
+                               rep_autoCorrel = NA, # a vector whcth (1) laser diameter, (2) laser speed, (3) which point to keep
+                               rep_dataFinalRasterNonCorr = NA, # a matrix of the final data without correlated points
+                               
+                               ##################################################################################################
+                               # Name: set_rep_autoCorrel
+                               # Function: to set the self$rep_autoCorrel
+                               # Input: x = a vector whcth (1) laser diameter, (2) laser speed, (3) which point to keep
+                               ##################################################################################################
+                               
+                               set_rep_autoCorrel = function(x){
+                               	self$rep_autoCorrel <- x
+                               },
+                               
+                               ##################################################################################################
+                               # Name: set_rep_dataFinalRasterNonCorr
+                               # Function: to set the self$rep_dataFinalRasterNonCorr
+                               ##################################################################################################
+                               
+                               set_rep_dataFinalRasterNonCorr = function(){
+                               	
+                               	k <- self$rep_autoCorrel[3] -1
+                               	autoCorrel <- self$rep_autoCorrel[1]/self$rep_autoCorrel[2]/self$rep_pas
+                               	
+                               	matOutput <- matrix(NA, ncol = ncol(self$rep_dataFinalRaster))
+                               	
+                               	for(i in seq(from = 1, to = nrow(self$rep_dataFinalRaster), by = 1)){
+                               		
+                               		if((i - k) %% ceiling(autoCorrel) == 0){
+                               			matOutput <- rbind(matOutput, self$rep_dataFinalRaster[i,])
+                               		} else {}
+                               		
+                               	}
+                               	
+                               	colnames(matOutput) <- colnames(self$rep_dataFinalRaster)
+                               	
+                               	self$rep_dataFinalRasterNonCorr <- matOutput[-1,]
+                               	
+                               	
+                               },
                                
                                ##################################################################################################
                                # Name: setrep_type2
@@ -1264,21 +1726,23 @@ elementR_repSample <- R6Class("elementR_repSample",
                                  
                                  min = min(do.call(rbind,data)[,1])
                                  
-                                 minPlace = which(sapply(1:length(data), function(x){
-                                   if(length(which(data[[x]][,1] == min)) == 1) {
-                                     TRUE                                   
-                                   } else {FALSE}
-                                 }) == TRUE)
+                                 minPlace = which(vapply(seq(from = 1, to = length(data), by = 1), 
+                                 				function(x){
+                                 					if(length(which(data[[x]][,1] == min)) == 1) {TRUE} else {FALSE}
+                                 					},
+                                 				FUN.VALUE = logical(1)
+                                 				) == TRUE)
                                  
                                  if(length(minPlace) != 1){minPlace = minPlace[1]} else{}
                                  
                                  max = max(do.call(rbind,data)[,1]) 
                                  
-                                 maxPlace = which(sapply(1:length(data), function(x){
-                                   if(length(which(data[[x]][,1] == max)) == 1) {
-                                     TRUE
-                                   }else {FALSE}
-                                 }) == TRUE)
+                                 maxPlace = which(vapply(seq(from = 1, to = length(data), by = 1), 
+                                 				function(x){
+                                 					if(length(which(data[[x]][,1] == max)) == 1) {TRUE}else {FALSE}
+                                 				}, 
+                                 				FUN.VALUE = logical(1)
+                                 				) == TRUE)
                                  
                                  if(length(maxPlace) != 1){maxPlace = maxPlace[length(maxPlace)]} else {}
                                  
@@ -1288,7 +1752,7 @@ elementR_repSample <- R6Class("elementR_repSample",
                                  
                                  dimMax <- NULL
                                  
-                                 for(i in 1:length(data)){
+                                 for(i in seq(from = 1, to = length(data), by = 1)){
                                    
                                    temp <- data[[i]]
                                    
@@ -1302,13 +1766,13 @@ elementR_repSample <- R6Class("elementR_repSample",
                                  
                                  dimMax <- max(dimMax)
                                  
-                                 for(j in 1:length(data)){
+                                 for(j in seq(from = 1, to = length(data), by = 1)){
                                    
                                    if(dim(data[[j]])[1] < dimMax){
                                      
                                      ToAdd <-dimMax - dim(data[[j]])[1]
                                      
-                                     for (i in 1:ToAdd){
+                                     for (i in seq(from = 1, to = ToAdd, by = 1)){
                                        
                                        temp <- rbind(data[[j]], c((data[[j]][(dim(data[[j]])[1]),1]+pas),rep(NA,(ncol(data[[1]])[1]-1))))
                                        
@@ -1330,10 +1794,12 @@ elementR_repSample <- R6Class("elementR_repSample",
                                
                                setRep_dataFiltre = function(x){
                                  
-                                 if(x == T){
-                                   self$rep_dataFiltre <- lapply(1:length(self$rep_Files),function(x){self$rep_data[[x]]$dataConcCorr})
+                                 if(x == TRUE){
+                                   self$rep_dataFiltre <- lapply(seq(from = 1, to = length(self$rep_Files), by = 1),function(x){
+                                   	self$rep_data[[x]]$dataConcCorr
+                                   	})
                                  } else {
-                                   self$rep_dataFiltre <- lapply(1:length(self$rep_Files),function(x){self$rep_data[[x]]$dataConc})
+                                   self$rep_dataFiltre <- lapply(seq(from = 1, to = length(self$rep_Files), by = 1),function(x){self$rep_data[[x]]$dataConc})
                                  }
                                  
                                  names(self$rep_dataFiltre) <- self$rep_Files
@@ -1359,7 +1825,18 @@ elementR_repSample <- R6Class("elementR_repSample",
                                
                                intermStepSpot = function(){
                                  
-                                 outputTab <- rbind(t(as.matrix(sapply(1:length(self$rep_Files), function(x){apply(self$rep_dataFiltre[[x]][,-1],2, mean,na.rm = TRUE)}))),t(as.matrix(sapply(1:length(self$rep_Files), function(x){apply(self$rep_dataFiltre[[x]][,-1],2, sd,na.rm = TRUE)}))))
+                                 outputTab <- rbind(t(as.matrix(vapply(seq(from = 1, to = length(self$rep_Files), by = 1), 
+                                 						  function(x){apply(self$rep_dataFiltre[[x]][,-1],2, mean,na.rm = TRUE)},
+                                 						  FUN.VALUE = double(ncol(self$rep_dataFiltre[[1]])-1)
+                                 						  )
+                                 					 )
+                                 			   ),t(as.matrix(vapply(seq(from = 1, to = length(self$rep_Files), by = 1),
+                                 			   			   function(x){apply(self$rep_dataFiltre[[x]][,-1],2, sd,na.rm = TRUE)},
+                                 			   			   FUN.VALUE  = double(ncol(self$rep_dataFiltre[[1]])-1)
+                                 			   			   	)
+                                 			   		  )
+                                 			       )
+                                 			 )
                                  
                                  namesCol <- c(paste0("Mean_", self$rep_Files),paste0("SD_", self$rep_Files))                                   
                                  
@@ -1374,29 +1851,72 @@ elementR_repSample <- R6Class("elementR_repSample",
                                # Output: outputList = a list of matrix containing realigned data
                                ##################################################################################################
                                
-                               intermStepRaster = function(decalage, input){
+                               intermStepRaster = function(decalage, input, outliers, replace){
                                  
                                  self$setRep_pas()
                                  
-                                 tabTemp <-lapply(1:length(self$rep_dataFiltre), function(x){
+                                 tabTemp <-lapply(seq(from = 1, to = length(self$rep_dataFiltre), by = 1), function(x){
                                    
                                    temp <- self$rep_dataFiltre[[x]]
                                    
-                                   temp[,1] <- temp[,1] + decalage[x] * self$rep_pas
-                                   
-                                   return(temp)                                   
+                                   if(length(which(names(self$rep_dataFiltre)[x] == names(decalage))) != 0){
+                                   	
+                                   	temp[,1] <- temp[,1] + decalage[which(names(self$rep_dataFiltre)[x] == names(decalage))] * self$rep_pas
+                                   	
+                                   	return(temp) 
+                                   	
+                                   } else {}
                                    
                                  })
                                  
-                                 names(tabTemp) <- names(self$rep_dataFiltre)
-                                                                                                   
-                                 outputList <- lapply(1:length(input), function(x){
-                                   tabTemp[[which(names(tabTemp) == input[x])]]
+                                 names(tabTemp) <- names(self$rep_dataFiltre)    
+                                                          
+                                 outputList <- lapply(seq(from = 1, to = length(input), by = 1), function(x){
+                                 	
+                                 	if(length(which(names(tabTemp) == input[x])) != 0){
+                                 		tabTemp[[which(names(tabTemp) == input[x])]]
+                                 	} else {}
+                                 	
                                  })
                                  
-                                 names(outputList) <- sapply(1:length(input), function(x){
-                                   names(tabTemp)[which(names(tabTemp) == input[x])]
-                                 })
+                                 if(!is.null(tabTemp[[1]])){
+                                 	names(outputList) <- vapply(seq(from = 1, to = length(input), by = 1), 
+                                 					    function(x){
+                                 					    	names(tabTemp)[which(names(tabTemp) == input[x])]
+                                 					    }, 
+                                 					    FUN.VALUE = character(1)
+                                 	)
+                                 }
+                                 
+                                 if(!is.null(outliers)){
+                                 
+                                 	for(x in seq(from = 1, to = length(outputList), by = 1)){
+                                 		
+                                 		for(i in seq(from = 2, to  = length(outliers), by = 1)){
+                                 			if(length(outliers[[i]]) != 0){
+                                 				for(j in seq(from = 1, to = length(outliers[[i]]), by = 1)){
+                                 					
+                                 					if(length(outliers[[i]][j]) != 0){
+                                 						
+                                 						if(is.numeric(outliers[[i]][j]) & !is.na(outliers[[i]][j])){
+                                 							
+                                 							toDelete <- which(round(outputList[[x]][,i],16) == round(outliers[[i]][j], 16))
+                                 							
+                                 							outputList[[x]][toDelete,i] <- replace
+                                 							
+                                 						}
+                                 						
+                                 					}
+                                 				}
+                                 			}
+                                 			
+                                 		
+                                 			
+                                 		}
+                                 	}
+
+                                 	
+                                 } else {}
                                  
                                  return(outputList)
                                },
@@ -1427,8 +1947,155 @@ elementR_repSample <- R6Class("elementR_repSample",
                                  colnames(MatTemp) <- colnames(self$rep_data[[1]]$data)
                                  
                                  self$rep_dataFinalRaster <- MatTemp
-                               }                               
+                               },                               
 
+                               ##################################################################################################
+                               # Name: RealignCol
+                               # Function: realign two tables according to one column
+                               # Input: 
+                               # 	dat1 & dat2: matrix to realign
+                               # 	col: the column to realign
+                               # 	step: the step between two consecutive analysis
+                               ##################################################################################################
+                               
+                               RealignCol = function(dat1, dat2, col, step){
+                               	
+                               	dat1[is.na(dat1[,col]),col] <- 0
+                               	dat2[is.na(dat2[,col]),col] <- 0
+                               	
+                               	save1 <- dat2[1,1]
+                               	
+                               	N <- which(convolve(dat2[,col], dat1[,col], type = "open") == max(convolve(dat2[,col], dat1[,col], type = "open")))[1] - 1
+                               	
+                               	essN <- dat2[,1] + (length(min(dat2[,1]) : max(dat1[,1])) - 1) - N*step
+                               	
+                               	dat2[,1] <- essN
+                               	
+                               	save2 <- dat2[1,1]
+                               	
+                               	saveDisplace <- round((save2 - save1)/step)
+                               	
+                               	data <- list(dat1, dat2, saveDisplace)
+                               	
+                               	return(data)
+                               },
+                               
+                               ##################################################################################################
+                               # Name: RealignColList
+                               # Function: realign many tables according to one column
+                               # Input: 
+                               # 	listRealig a list of matrix to realign
+                               # 	col: the column to realign
+                               # 	step: the step between two consecutive analysis
+                               ##################################################################################################
+                               
+                               RealignColList = function(listRealig, col, step){
+                               	
+                               	realignList <- lapply(seq(from = 1, to = length(listRealig), by = 1), function(x){
+                               		
+                               		if(x == 1){
+                               			
+                               			dat1 <- listRealig[[1]]
+                               			dat2 <- listRealig[[1]]
+                               			
+                               			self$RealignCol(dat1, dat2, col, step)[[2]]
+                               			
+                               		}else {
+                               			
+                               			dat1 <- listRealig[[1]]
+                               			dat2 <- listRealig[[x]]
+                               			
+                               			self$RealignCol(dat1, dat2, col, step)[[2]]
+                               		}
+                               	})
+                               	
+                               	names(realignList) <- self$rep_Files
+                               	
+                               	realignDisplacement <- vapply(seq(from = 1, to = length(listRealig), by = 1), 
+                               						function(x){
+                               							if(x == 1){0} else {
+                               								dat1 <- listRealig[[1]]
+                               								dat2 <- listRealig[[x]]
+                               								
+                               								self$RealignCol(dat1, dat2, col, step)[[3]]
+                               								}
+                               							}, 
+                               						FUN.VALUE = numeric(1)
+                               		)
+                               	
+                               	names(realignDisplacement) <- self$rep_Files
+                               	
+                               	return(list(realignList, realignDisplacement))
+                               },
+                               
+                               ##################################################################################################
+                               # Name: RealignAll
+                               # Function: realign two tables according to all columns
+                               # Input: 
+                               # 	dat1 & dat2: matrix to realign
+                               # 	step: the step between two consecutive analysis
+                               ##################################################################################################
+                               
+                               RealignAll = function(dat1, dat2, step){
+                               	
+                               	listConv <- vapply(seq(from = 2, to = ncol(dat1), by = 1),
+                               				 function(x){                               		
+                               				 	dat1[is.na(dat1[,x]),x] <- 0
+                               				 	dat2[is.na(dat2[,x]),x] <- 0
+                               				 	
+                               				 	convolve(dat2[,x], dat1[,x], type = "open")
+                               				 	},
+                               				 FUN.VALUE = numeric(1)
+                               				 )
+                               	
+                               	convResult <- apply(listConv, 1, sum)
+                               	
+                               	N <- which(convResult == max(convResult))[1] -1
+                               	
+                               	essN <- dat2[,1] + (length(min(dat2[,1]) : max(dat1[,1])) - 1) - N*step
+                               	
+                               	dat2[,1] <- essN
+                               	
+                               	data <- list(dat1, dat2)
+                               	
+                               	return(data)
+                               },
+                               
+                               ##################################################################################################
+                               # Name: RealignListAll
+                               # Function: realign many tables according to all columns
+                               # Input: 
+                               # 	listRealig a list of matrix to realign
+                               # 	step: the step between two consecutive analysis
+                               ##################################################################################################
+                               
+                               RealignListAll = function(listRealig, step){
+                               	
+                               	realignList <- lapply(seq(from = 1, to = length(listRealig), by = 1), function(x){
+                               		
+                               		if(x == 1){
+                               			
+                               			dat1 <- listRealig[[1]]
+                               			dat2 <- listRealig[[1]]
+                               			
+                               			self$RealignAll(dat1, dat2, step)[[2]]
+                               			
+                               		}else {
+                               			
+                               			dat1 <- listRealig[[1]]
+                               			dat2 <- listRealig[[x]]
+                               			
+                               			self$RealignAll(dat1, dat2, step)[[2]]
+                               		}
+                               	})
+                               	
+                               	names(realignList) <- self$rep_Files
+                               	
+                               	return(realignList)
+                               	
+                               }
+                               
+                               
                                
                              ) # list
 ) # elementR_repstand

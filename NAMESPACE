@@ -1,7 +1,11 @@
 exportPattern("^[[:alpha:]]+")
 
 importFrom(R6, R6Class)
-importFrom(shinyjs, colourInput)
+importFrom(outliers, outlier)
+importFrom(climtrends, FindOutliersTietjenMooreTest)
+importFrom(EnvStats, rosnerTest)
+importFrom(zoo, rollmedian)
+importFrom(colourpicker, colourInput)
 importFrom(shinyjs, delay)
 importFrom(shinyjs, useShinyjs)
 importFrom(gnumeric, read.gnumeric.sheet)
