@@ -2,7 +2,7 @@ Package: elementR
 Type: Package
 Title: A Set of R6 Classes & a Shiny Application for Reducing Elemental
         LA-ICPMS Data from Solid Structures
-Version: 1.3.0
+Version: 1.3.1
 Date: 2017-02-16
 Author: Charlotte Sirot, Francois Guilhaumon
 Maintainer: Charlotte Sirot <charlott.sirot@gmail.com>
@@ -18,5 +18,5 @@ Suggests: testthat
 URL: https://github.com/charlottesirot/elementR
 BugReports: https://github.com/charlottesirot/elementR/issues
 NeedsCompilation: no
-Packaged: 2017-03-06 14:05:54 UTC; cha
-Date/Publication: 2017-03-06 15:45:05
+Packaged: 2017-04-17 13:56:31 UTC; cha
+Date/Publication: 2017-04-17 14:13:26 UTC

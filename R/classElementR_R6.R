@@ -354,6 +354,17 @@ elementR_data <- R6Class("elementR_data",
                            },
                            
                            ##################################################################################################
+                           # Name: is.integer0
+                           # Function: test the value integer(0)
+                           # Input: x = the vector to test
+                           # Output: TRUE or FALSE
+                           ##################################################################################################
+                           
+                           is.integer0 = function(x){
+                           	is.integer(x) && length(x) == 0L
+                           },
+                           
+                           ##################################################################################################
                            # Name: detectOutlierMatrix
                            # Function: return the place of the outlier for each column of a matrix
                            # Input: 
@@ -382,7 +393,7 @@ elementR_data <- R6Class("elementR_data",
                            			
                            			NULL
                            			
-                           		} else if(!is.integer0(which(!is.na(dat[,x]) == TRUE))){
+                           		} else if(!self$is.integer0(which(!is.na(dat[,x]) == TRUE))){
                            			
                            			if(self$is.possibleOutlier(dat = dat[,x])){
                            				
@@ -719,7 +730,7 @@ elementR_sample <- R6Class("elementR_sample",
                                		   				
                                		   			}
                                		   			
-                               		   		} else {return(rep(NA, nrow(dat)))}
+                               		   		} else {return(rep(NA, nrow(self$dataNorm)))}
                                		   		
                                		   	}
                                		   	
