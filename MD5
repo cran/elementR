@@ -1,12 +1,11 @@
-cf7d8f484f01648d3e5ca056d3335aa8 *DESCRIPTION
-3b4114f2c59aadeedaad514929a1f245 *NAMESPACE
-5900ca775a6e89d60aeda0e13303f45f *R/App.R
-e040e14d20801fa48809cb704ec90ad6 *R/classElementR_R6.R
+e8e0af56b49c88f1f0f6a3b47ce5d714 *DESCRIPTION
+12ec5bc4a1d9c71005bd10edd2db219c *NAMESPACE
+d662f822ef8f9ef2b23536224f7f8b60 *R/App.R
+8bb936d44d9e2e8a2405315ed7603aa7 *R/classElementR_R6.R
 9090812ea7ff88e1538b4d1de5407115 *R/convertMol_to_PPM.R
 13b1662cf5bd6c6b86353a44dc03ddb5 *R/convertPPM_to_Mol.R
 8900e1918ab0024a6d79ca9b9f9eeb2d *R/convertingReplicate.R
 f9cd436301790eafc5563ca73dda93e0 *R/splitReplicates.R
-f6a38203ef250b0907d1d9993b9f5c6f *README.md
 b898db5c7ac845b89d83c4c66131fa8b *inst/AtomicMass.csv
 678513b2a2eea80cb8c8290ff26fd665 *inst/Example_Session/Calibration_File_NIST612.csv
 7b5839145e52ae3991d7a5d242edd532 *inst/Example_Session/samples/Sample_1/Sample1_Rep1.csv
@@ -121,7 +120,7 @@ bbf8ed2a67d0106c10d8b2bfbb42401f *inst/Results/standards/Stand3.xls/data_Norm_St
 320dc9d8e40f6e5e29ec23d41f43cc1a *inst/Results/standards/Stand3.xls/data_Plateau_Stand3.xls.csv
 009a8e719249602c861ce51e0132bd2d *inst/Results/standards/Stand3.xls/data_SupLOD_Stand3.xls.csv
 009a8e719249602c861ce51e0132bd2d *inst/Results/standards/Stand3.xls/data_SuppBlank_Stand3.xls.csv
-8f1f23efaceba22643531c23336ea371 *inst/elementR_documentation.pdf
+b71ca3b52015efc17fcf7e4bac6a9892 *inst/elementR_documentation.pdf
 7b8311bcd4d99b5580982fa4b3886b9f *inst/splitReplicate_example.csv
 d6afd621422e9b9df2d1d6bd5b9d1dd3 *inst/www/1.png
 2bb8e5a033cb0544a0cd3b6e776db34a *inst/www/2.png
